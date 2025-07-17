@@ -1,47 +1,46 @@
-name: Deploy Django App via Bastion
+name: 🚀 Auto Deploy Django via Bastion
 
 on:
   push:
-    branches: [ main ]  # 👈 Trigger on push to main
+    branches:
+      - main
 
 jobs:
   deploy:
-    name: CI/CD Deployment
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📦 Checkout Code
-      uses: actions/checkout@v3
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
 
-    - name: 🔐 Set up SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
+      - name: 🔐 Set up SSH Key & Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/deploy_key
+          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-    - name: 🧾 Add Known Hosts
-      run: |
-        echo "${{ secrets.KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+      - name: 🚀 SSH into Bastion → Jump to Private EC2 & Deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -i ~/.ssh/deploy_key \
+              -J ${{ secrets.BASTION_HOST }} \
+              ${{ secrets.WEB_PRIVATE_IP }} << 'EOF'
 
-    - name: 🚀 SSH into Private EC2 via Bastion and Pull + Restart
-      run: |
-        ssh -o StrictHostKeyChecking=yes \
-            -i ~/.ssh/deploy_key \
-            -J ${{ secrets.BASTION_HOST }} \
-            ${{ secrets.WEB_PRIVATE_IP }} << 'EOF'
+            cd ~/Automation-task-GA
 
-          echo "🔄 Pulling latest code..."
-          cd ~/Automation-task-GA
-          git pull origin main
+            echo "🔄 Pulling latest code..."
+            git pull origin main
 
-          echo "🐍 Activating virtual environment..."
-          source venv/bin/activate
+            echo "📦 Installing dependencies..."
+            source venv/bin/activate
+            pip install -r requirements.txt
 
-          echo "📦 Installing dependencies..."
-          pip install -r requirements.txt
+            echo "🔁 Restarting Gunicorn..."
+            systemctl --user restart gunicorn
 
-          echo "🔁 Restarting Gunicorn..."
-          systemctl --user restart gunicorn
+            echo "✅ Deployment Complete"
 
-          echo "✅ Deployment complete!"
-        EOF
+          EOF
