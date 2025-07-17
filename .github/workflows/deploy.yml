@@ -2,35 +2,46 @@ name: Deploy Django App via Bastion
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]  # 👈 Trigger on push to main
 
 jobs:
   deploy:
-    name: Deploy via Bastion SSH
+    name: CI/CD Deployment
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: 📦 Checkout Code
+      uses: actions/checkout@v3
 
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+    - name: 🔐 Set up SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
 
-      - name: Add known hosts
-        run: |
-          echo "${{ secrets.KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+    - name: 🧾 Add Known Hosts
+      run: |
+        echo "${{ secrets.KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
 
-      - name: SSH jump & deploy
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -J ${{ secrets.BASTION_HOST }} ${{ secrets.WEB_PRIVATE_IP }} << 'EOF'
-            cd ~/Automation-task-GA
-            git pull
-            source venv/bin/activate
-            pip install -r requirements.txt
-            python manage.py migrate
-            sudo systemctl restart gunicorn
-          EOF
+    - name: 🚀 SSH into Private EC2 via Bastion and Pull + Restart
+      run: |
+        ssh -o StrictHostKeyChecking=yes \
+            -i ~/.ssh/deploy_key \
+            -J ${{ secrets.BASTION_HOST }} \
+            ${{ secrets.WEB_PRIVATE_IP }} << 'EOF'
+
+          echo "🔄 Pulling latest code..."
+          cd ~/Automation-task-GA
+          git pull origin main
+
+          echo "🐍 Activating virtual environment..."
+          source venv/bin/activate
+
+          echo "📦 Installing dependencies..."
+          pip install -r requirements.txt
+
+          echo "🔁 Restarting Gunicorn..."
+          systemctl --user restart gunicorn
+
+          echo "✅ Deployment complete!"
+        EOF
