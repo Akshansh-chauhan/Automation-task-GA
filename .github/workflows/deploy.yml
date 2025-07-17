@@ -3,7 +3,7 @@ name: Deploy Django App
 on:
   push:
     branches:
-      - main  # or your deploy branch
+      - main
 
 jobs:
   deploy:
@@ -19,8 +19,7 @@ jobs:
         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
 
-        cat <<EOF > ~/.ssh/config
-Host bastion
+        echo "Host bastion
   HostName ${{ secrets.BASTION_HOST }}
   User ubuntu
   IdentityFile ~/.ssh/deploy_key
@@ -31,21 +30,27 @@ Host webserver
   User ubuntu
   IdentityFile ~/.ssh/deploy_key
   ProxyJump bastion
-  IdentitiesOnly yes
-EOF
+  IdentitiesOnly yes" > ~/.ssh/config
 
         chmod 600 ~/.ssh/config
+
+        # Add known hosts
         echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
         chmod 644 ~/.ssh/known_hosts
 
+    - name: Debug SSH connection
+      run: |
+        echo "🔐 Testing SSH connection..."
+        ssh -v webserver "echo '✅ SSH connection successful.'"
+
     - name: Deploy to Web Server via Bastion
       run: |
+        echo "🚀 Starting deployment..."
         ssh webserver <<'EOF'
-        echo "✅ Connected to webserver through bastion!"
-        cd ~/Automation-task-GA
-        source venv/bin/activate
-        git pull origin main
-        pip install -r requirements.txt
-        python manage.py migrate
-        sudo systemctl restart gunicorn
+cd ~/Automation-task-GA
+source venv/bin/activate
+git pull origin main
+pip install -r requirements.txt
+python manage.py migrate
+sudo systemctl restart gunicorn
 EOF
