@@ -1,46 +1,53 @@
-name: 🚀 Auto Deploy Django via Bastion
+name: Deploy Django App
 
 on:
   push:
     branches:
-      - main
+      - main  # or your deploy branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: 🔐 Set up SSH Key & Known Hosts
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/deploy_key
-          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+    - name: Set up SSH key and config
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
 
-      - name: 🚀 SSH into Bastion → Jump to Private EC2 & Deploy
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/deploy_key \
-              -J ${{ secrets.BASTION_HOST }} \
-              ${{ secrets.WEB_PRIVATE_IP }} << 'EOF'
+        cat <<EOF > ~/.ssh/config
+        Host bastion
+          HostName ${{ secrets.BASTION_HOST }}
+          User ubuntu
+          IdentityFile ~/.ssh/deploy_key
+          IdentitiesOnly yes
 
-            cd ~/Automation-task-GA
+        Host webserver
+          HostName ${{ secrets.WEB_PRIVATE_IP }}
+          User ubuntu
+          IdentityFile ~/.ssh/deploy_key
+          ProxyJump bastion
+          IdentitiesOnly yes
+        EOF
 
-            echo "🔄 Pulling latest code..."
-            git pull origin main
+        chmod 600 ~/.ssh/config
 
-            echo "📦 Installing dependencies..."
-            source venv/bin/activate
-            pip install -r requirements.txt
+        # Add known_hosts so SSH doesn't ask to confirm
+        echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
 
-            echo "🔁 Restarting Gunicorn..."
-            systemctl --user restart gunicorn
-
-            echo "✅ Deployment Complete"
-
-          EOF
+    - name: Deploy to Web Server via Bastion
+      run: |
+        ssh webserver << 'EOF'
+          echo "✅ Connected to webserver through bastion!"
+          cd ~/Automation-task-GA  # Adjust if code is elsewhere
+          source venv/bin/activate  # Activate virtualenv
+          git pull origin main
+          pip install -r requirements.txt
+          python manage.py migrate
+          # Restart Gunicorn or systemd here if set up
+        EOF
