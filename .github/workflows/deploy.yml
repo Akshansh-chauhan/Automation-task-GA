@@ -50,4 +50,5 @@ jobs:
           pip install -r requirements.txt
           python manage.py migrate
           # Restart Gunicorn or systemd here if set up
+	  sudo systemctl restart gunicorn
         EOF
