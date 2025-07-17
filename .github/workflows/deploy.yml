@@ -20,35 +20,32 @@ jobs:
         chmod 600 ~/.ssh/deploy_key
 
         cat <<EOF > ~/.ssh/config
-        Host bastion
-          HostName ${{ secrets.BASTION_HOST }}
-          User ubuntu
-          IdentityFile ~/.ssh/deploy_key
-          IdentitiesOnly yes
+Host bastion
+  HostName ${{ secrets.BASTION_HOST }}
+  User ubuntu
+  IdentityFile ~/.ssh/deploy_key
+  IdentitiesOnly yes
 
-        Host webserver
-          HostName ${{ secrets.WEB_PRIVATE_IP }}
-          User ubuntu
-          IdentityFile ~/.ssh/deploy_key
-          ProxyJump bastion
-          IdentitiesOnly yes
-        EOF
+Host webserver
+  HostName ${{ secrets.WEB_PRIVATE_IP }}
+  User ubuntu
+  IdentityFile ~/.ssh/deploy_key
+  ProxyJump bastion
+  IdentitiesOnly yes
+EOF
 
         chmod 600 ~/.ssh/config
-
-        # Add known_hosts so SSH doesn't ask to confirm
         echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
         chmod 644 ~/.ssh/known_hosts
 
     - name: Deploy to Web Server via Bastion
       run: |
-        ssh webserver << 'EOF'
-          echo "✅ Connected to webserver through bastion!"
-          cd ~/Automation-task-GA  # Adjust if code is elsewhere
-          source venv/bin/activate  # Activate virtualenv
-          git pull origin main
-          pip install -r requirements.txt
-          python manage.py migrate
-          # Restart Gunicorn or systemd here if set up
-	  sudo systemctl restart gunicorn
-        EOF
+        ssh webserver <<'EOF'
+        echo "✅ Connected to webserver through bastion!"
+        cd ~/Automation-task-GA
+        source venv/bin/activate
+        git pull origin main
+        pip install -r requirements.txt
+        python manage.py migrate
+        sudo systemctl restart gunicorn
+EOF
