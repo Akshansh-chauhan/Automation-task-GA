@@ -1,2 +1,2 @@
 # Automation-task-GA
-Automated Deploy of Django app (running on port 8000) on private ec2 via bastion host
+ Engineered a robust CI/CD workflow to automate the deployment of a Django-based Python application to a private EC2 instance (port 8000), securely accessed via a bastion host, with GitHub Actions integration for seamless deployment on code push events.
