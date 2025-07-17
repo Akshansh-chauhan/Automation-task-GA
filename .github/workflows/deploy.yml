@@ -19,38 +19,32 @@ jobs:
         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
 
-        echo "Host bastion
-  HostName ${{ secrets.BASTION_HOST }}
-  User ubuntu
-  IdentityFile ~/.ssh/deploy_key
-  IdentitiesOnly yes
+        echo "Host bastion" >> ~/.ssh/config
+        echo "  HostName ${{ secrets.BASTION_HOST }}" >> ~/.ssh/config
+        echo "  User ubuntu" >> ~/.ssh/config
+        echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
+        echo "  IdentitiesOnly yes" >> ~/.ssh/config
 
-Host webserver
-  HostName ${{ secrets.WEB_PRIVATE_IP }}
-  User ubuntu
-  IdentityFile ~/.ssh/deploy_key
-  ProxyJump bastion
-  IdentitiesOnly yes" > ~/.ssh/config
+        echo "Host webserver" >> ~/.ssh/config
+        echo "  HostName ${{ secrets.WEB_PRIVATE_IP }}" >> ~/.ssh/config
+        echo "  User ubuntu" >> ~/.ssh/config
+        echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
+        echo "  ProxyJump bastion" >> ~/.ssh/config
+        echo "  IdentitiesOnly yes" >> ~/.ssh/config
 
         chmod 600 ~/.ssh/config
 
-        # Add known hosts
         echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
         chmod 644 ~/.ssh/known_hosts
 
-    - name: Debug SSH connection
-      run: |
-        echo "🔐 Testing SSH connection..."
-        ssh -v webserver "echo '✅ SSH connection successful.'"
-
     - name: Deploy to Web Server via Bastion
       run: |
-        echo "🚀 Starting deployment..."
-        ssh webserver <<'EOF'
-cd ~/Automation-task-GA
-source venv/bin/activate
-git pull origin main
-pip install -r requirements.txt
-python manage.py migrate
-sudo systemctl restart gunicorn
-EOF
+        ssh webserver "
+          echo '✅ Connected to webserver via bastion';
+          cd ~/Automation-task-GA;
+          source venv/bin/activate;
+          git pull origin main;
+          pip install -r requirements.txt;
+          python manage.py migrate;
+          sudo systemctl restart gunicorn;
+        "
